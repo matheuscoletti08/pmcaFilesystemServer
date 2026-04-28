@@ -4,12 +4,19 @@ import com.github.ma1co.openmemories.framework.DeviceInfo;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
 import java.io.RandomAccessFile;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import fi.iki.elonen.SimpleWebServer;
 
@@ -24,10 +31,10 @@ public class HttpServer extends SimpleWebServer {
         "header { background: #0f172a; color: white; padding: 1rem; text-align: center; position: sticky; top: 0; z-index: 100; }\n" +
         "header h1 { margin: 0; font-size: 1.1rem; }\n" +
         ".container { padding: 0.75rem; max-width: 800px; margin: 0 auto; }\n" +
-        ".breadcrumbs { margin-bottom: 1rem; font-size: 0.85rem; padding: 0.5rem; background: white; border-radius: 8px; border: 1px solid #e2e8f0; white-space: nowrap; overflow-x: auto; }\n" +
+        ".breadcrumbs { margin-bottom: 1rem; font-size: 0.85rem; padding: 0.5rem; background: white; border-radius: 8px; border: 1px solid #e2e8f0; white-space: nowrap; overflow-x: auto; display: flex; align-items: center; justify-content: space-between; }\n" +
         ".breadcrumbs a { color: #3b82f6; text-decoration: none; }\n" +
         ".card { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 1rem; border: 1px solid #e2e8f0; }\n" +
-        ".card-header { padding: 0.75rem 1rem; font-weight: 700; border-bottom: 1px solid #f1f5f9; background: #f8fafc; font-size: 0.9rem; }\n" +
+        ".card-header { padding: 0.75rem 1rem; font-weight: 700; border-bottom: 1px solid #f1f5f9; background: #f8fafc; font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center; }\n" +
         ".file-list { list-style: none; padding: 0; margin: 0; }\n" +
         ".file-item { display: flex; align-items: center; padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; text-decoration: none; color: inherit; }\n" +
         ".file-item:last-child { border-bottom: none; }\n" +
@@ -38,6 +45,7 @@ public class HttpServer extends SimpleWebServer {
         ".file-icon { font-size: 1.5rem; margin-right: 1rem; flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 40px; }\n" +
         ".thumb-img { width: 40px; height: 40px; border-radius: 4px; object-fit: cover; margin-right: 1rem; background: #eee; flex-shrink: 0; }\n" +
         ".btn-action { padding: 0.5rem 0.75rem; background: #3b82f6; color: white; border-radius: 6px; font-size: 0.75rem; font-weight: 600; text-decoration: none; margin-left: 0.5rem; flex-shrink: 0; }\n" +
+        ".btn-zip { background: #10b981; margin-left: auto; }\n" +
         ".preview-img { width: 100%; height: auto; display: block; border-radius: 8px; margin-bottom: 0.5rem; background: #eee; }\n" +
         ".preview-container { padding: 1rem; text-align: center; }\n" +
         "footer { text-align: center; padding: 2rem; color: #94a3b8; font-size: 0.75rem; }";
@@ -51,6 +59,10 @@ public class HttpServer extends SimpleWebServer {
         String uri = session.getUri();
         File f = new File(uri);
 
+        if (session.getParameters().containsKey("zip") && f.isDirectory()) {
+            return serveZip(f);
+        }
+
         if (session.getParameters().containsKey("thumb")) {
             return serveThumbnail(f);
         }
@@ -63,6 +75,61 @@ public class HttpServer extends SimpleWebServer {
             return serveDirectory(uri, f);
         } else {
             return super.serve(session);
+        }
+    }
+
+    private Response serveZip(final File directory) {
+        try {
+            final PipedOutputStream pos = new PipedOutputStream();
+            PipedInputStream pis = new PipedInputStream(pos);
+
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    ZipOutputStream zos = null;
+                    try {
+                        zos = new ZipOutputStream(pos);
+                        zipFolder(directory, directory, zos);
+                    } catch (IOException e) {
+                        Logger.error("ZIP error: " + e.getMessage());
+                    } finally {
+                        try {
+                            if (zos != null) zos.close();
+                            pos.close();
+                        } catch (IOException e) {
+                            // Ignore
+                        }
+                    }
+                }
+            }).start();
+
+            Response res = newChunkedResponse(Response.Status.OK, "application/zip", pis);
+            res.addHeader("Content-Disposition", "attachment; filename=\"" + directory.getName() + ".zip\"");
+            return res;
+        } catch (IOException e) {
+            return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, MIME_PLAINTEXT, "Zip error: " + e.getMessage());
+        }
+    }
+
+    private void zipFolder(File root, File folder, ZipOutputStream zos) throws IOException {
+        File[] files = folder.listFiles();
+        if (files == null) return;
+        byte[] buffer = new byte[64 * 1024]; // 64KB buffer
+        for (File f : files) {
+            if (f.isDirectory()) {
+                zipFolder(root, f, zos);
+            } else {
+                String entryName = f.getAbsolutePath().substring(root.getAbsolutePath().length() + 1);
+                ZipEntry ze = new ZipEntry(entryName);
+                zos.putNextEntry(ze);
+                FileInputStream fis = new FileInputStream(f);
+                int len;
+                while ((len = fis.read(buffer)) > 0) {
+                    zos.write(buffer, 0, len);
+                }
+                fis.close();
+                zos.closeEntry();
+            }
         }
     }
 
@@ -82,16 +149,13 @@ public class HttpServer extends SimpleWebServer {
         if (!f.exists() || !f.isFile()) return null;
         RandomAccessFile raf = new RandomAccessFile(f, "r");
         try {
-            // Miniaturas EXIF e previews costumam estar nos primeiros 256KB
             byte[] buffer = new byte[256 * 1024];
             int bytesRead = raf.read(buffer);
             if (bytesRead < 4) return null;
 
             for (int i = 0; i < bytesRead - 3; i++) {
-                // Busca marcador SOI (Start of Image) de um JPEG: FF D8 FF
                 if ((buffer[i] & 0xFF) == 0xFF && (buffer[i+1] & 0xFF) == 0xD8 && (buffer[i+2] & 0xFF) == 0xFF) {
                     int start = i;
-                    // Busca marcador EOI (End of Image): FF D9
                     for (int j = i + 2; j < bytesRead - 1; j++) {
                         if ((buffer[j] & 0xFF) == 0xFF && (buffer[j+1] & 0xFF) == 0xD9) {
                             int end = j + 2;
@@ -100,7 +164,6 @@ public class HttpServer extends SimpleWebServer {
                             return thumb;
                         }
                     }
-                    // Se não achar o fim no buffer, retorna o que tem (browsers geralmente lidam com isso)
                     int end = bytesRead;
                     byte[] thumb = new byte[end - start];
                     System.arraycopy(buffer, start, thumb, 0, thumb.length);
@@ -129,7 +192,6 @@ public class HttpServer extends SimpleWebServer {
         html.append("<div class=\"breadcrumbs\"><a href=\"").append(f.getParent()).append("\">🔙 Voltar para pasta</a></div>");
         html.append("<div class=\"card preview-container\">");
         
-        // Para ARW, usa o endpoint de thumbnail para o preview
         String imgSrc = f.getName().toLowerCase().endsWith(".arw") ? uri + "?thumb=1" : uri;
         html.append("<img src=\"").append(imgSrc).append("\" class=\"preview-img\">");
         
@@ -153,7 +215,7 @@ public class HttpServer extends SimpleWebServer {
         html.append("<div class=\"container\">");
 
         // Breadcrumbs
-        html.append("<div class=\"breadcrumbs\">");
+        html.append("<div class=\"breadcrumbs\"><div>");
         html.append("<a href=\"/\">Início</a>");
         String[] parts = uri.split("/");
         StringBuilder currentPath = new StringBuilder();
@@ -161,6 +223,11 @@ public class HttpServer extends SimpleWebServer {
             if (part.isEmpty()) continue;
             currentPath.append("/").append(part);
             html.append(" / <a href=\"").append(currentPath.toString()).append("\">").append(part).append("</a>");
+        }
+        html.append("</div>");
+        
+        if (!uri.equals("/") && !uri.isEmpty()) {
+            html.append("<a href=\"").append(uri).append("?zip=1\" class=\"btn-action btn-zip\">Download ZIP</a>");
         }
         html.append("</div>");
 
@@ -182,11 +249,9 @@ public class HttpServer extends SimpleWebServer {
         html.append("<div class=\"card-header\">Mídias Encontradas</div>");
         html.append("<div class=\"file-list\">");
         
-        // Caminhos específicos solicitados para câmeras Sony
         String videoPath = "/sdcard/PRIVATE/M4ROOT/CLIP";
         String photosPath = "/sdcard/DCIM";
 
-        // Soma JPEGs e RAWs para a categoria "Photos"
         int photoCount = FilesystemScanner.getJpegsOnExternalStorage().size() + 
                          FilesystemScanner.getRawsOnExternalStorage().size();
 
@@ -209,7 +274,7 @@ public class HttpServer extends SimpleWebServer {
 
     private void renderFileList(String uri, File directory, StringBuilder html) {
         html.append("<div class=\"card\">");
-        html.append("<div class=\"card-header\">Arquivos em ").append(uri).append("</div>");
+        html.append("<div class=\"card-header\"><span>Arquivos em ").append(uri).append("</span></div>");
         html.append("<div class=\"file-list\">");
 
         if (!uri.equals("/") && !uri.isEmpty()) {
