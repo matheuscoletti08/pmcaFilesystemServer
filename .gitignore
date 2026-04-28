@@ -1,6 +1,9 @@
+.gitignore
+
 /.gradle
 /.idea
 /build
 /local.properties
 /*.iml
 /.vscode
+GEMINI.md
