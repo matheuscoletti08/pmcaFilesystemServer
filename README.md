@@ -12,11 +12,17 @@ greatly inspired by the following existing open source PMCA Apps
 * [LubikR/SynologyUploader](https://github.com/LubikR/SynologyUploader)
 * [Bostwickenator/STGUploader](https://github.com/Bostwickenator/STGUploader)
 
+# Pre-release of new UI
+
+The PR for the new user interface hase been dangling for years. Now there is a pre-release that can be installed via Sony-PMCA-RE or through adb. See [#4](https://github.com/schnatterer/pmcaFilesystemServer/pull/4).
+
+<img src="https://user-images.githubusercontent.com/1522953/88163092-7608fe80-cc12-11ea-8db7-9d0efad416be.png" height="240px">&nbsp;&nbsp;&nbsp;&nbsp;<img src="https://user-images.githubusercontent.com/1522953/88175996-ef125100-cc26-11ea-83ce-7c54c6b1f269.png" height="240px"> 
+
 # Installation 
 
-* Use [Sony-PMCA-RE](https://github.com/ma1co/Sony-PMCA-RE) 
-* or through adb.
-* In the future it might be available via [sony-pmca.appspot.com](https://sony-pmca.appspot.com/apps). 
+* Use [Sony-PMCA-RE](https://github.com/ma1co/Sony-PMCA-RE), 
+* via [sony-pmca.appspot.com](https://sony-pmca.appspot.com/apps) or 
+* through adb (using [tweak app](https://github.com/ma1co/OpenMemories-Tweak)).
 
 # Usage
 
@@ -38,8 +44,8 @@ adb connect 192.168.178.53:5555
 
 See https://stackoverflow.com/a/3623727
 
-For creating a signed release, see https://developer.android.com/studio/publish/app-signing#sign_release  
-Right now, this step is not yet automated using gradle.
+For creating a release, set git tag and then upload an *unsigned* APK to GitHub's release page.
+Signed APKs seem to be denied by Sony-PMCA-RE.
 
 The app writes a log file to the SD card: `/storage/sdcard0/pmcaFilesystemServer/LOG.TXT`.
 
