@@ -15,7 +15,17 @@ import android.widget.TextView;
 import java.io.IOException;
 
 public class WifiActivity extends BaseActivity {
+    public static final String ASCII_ART =
+            " .____     _________________________________.___/\\\n" +
+            " |    |    \\_   _____/\\__    ___/\\__    ___/|   \\(\n" +
+            " |    |     |    __)_   |    |     |    |   |   |\n" +
+            " |    |___  |        \\  |    |     |    |   |   |\n" +
+            " |_______ \\/_______  /  |____|     |____|   |___|\n" +
+            "         \\/        \\/ \n" +
+            "           [ L E T T I ]\n\n";
+
     private TextView textView;
+    private android.widget.ScrollView scrollView;
     private WifiManager wifiManager;
     private BroadcastReceiver wifiStateReceiver;
     private BroadcastReceiver supplicantStateReceiver;
@@ -28,6 +38,8 @@ public class WifiActivity extends BaseActivity {
         setContentView(R.layout.log);
 
         textView = (TextView) findViewById(R.id.logView);
+        scrollView = (android.widget.ScrollView) findViewById(R.id.logScrollView);
+        textView.setText(ASCII_ART);
 
         wifiManager = (WifiManager) getApplicationContext().getSystemService(WIFI_SERVICE);
 
@@ -129,7 +141,23 @@ public class WifiActivity extends BaseActivity {
         log(ssid + ": Connected. Server URL: http://" + ip + ":" + HttpServer.PORT + "/");
     }
 
-    protected void log(String msg) {
-        textView.setText(msg);
+    protected void log(final String msg) {
+        Logger.info(msg);
+        textView.post(new Runnable() {
+            @Override
+            public void run() {
+                textView.append(msg + "\n");
+                scrollToBottom();
+            }
+        });
+    }
+
+    private void scrollToBottom() {
+        scrollView.post(new Runnable() {
+            @Override
+            public void run() {
+                scrollView.fullScroll(android.view.View.FOCUS_DOWN);
+            }
+        });
     }
 }
