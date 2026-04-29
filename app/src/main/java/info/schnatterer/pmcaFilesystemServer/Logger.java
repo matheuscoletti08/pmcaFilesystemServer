@@ -1,5 +1,7 @@
 package info.schnatterer.pmcaFilesystemServer;
 
+import android.content.Context;
+import android.content.Intent;
 import android.os.Environment;
 import android.util.Log;
 
@@ -17,16 +19,30 @@ public class Logger {
         return new File(Environment.getExternalStorageDirectory(), "pmcaFilesystemServer/LOG.TXT");
     }
 
+    public static final String ACTION_NEW_LOG = "info.schnatterer.pmcaFilesystemServer.ACTION_NEW_LOG";
+    public static final String EXTRA_MESSAGE = "message";
+
+    private static Context context;
+
+    public static void init(Context ctx) {
+        context = ctx.getApplicationContext();
+    }
+
     protected static void log(String msg) {
         try {
             getFile().getParentFile().mkdirs();
             BufferedWriter writer = new BufferedWriter(new FileWriter(getFile(), true));
             SimpleDateFormat sdf = new SimpleDateFormat(DATE_PATTERN, Locale.US);
-            writer.append(sdf.format(new Date()));
-            writer.append(" ");
-            writer.append(msg);
+            String timestampedMsg = sdf.format(new Date()) + " " + msg;
+            writer.append(timestampedMsg);
             writer.newLine();
             writer.close();
+
+            if (context != null) {
+                Intent intent = new Intent(ACTION_NEW_LOG);
+                intent.putExtra(EXTRA_MESSAGE, msg);
+                context.sendBroadcast(intent);
+            }
         } catch (IOException e) {
             Log.e("pmcaFilesystemServer", "Error writing log", e);
         }
