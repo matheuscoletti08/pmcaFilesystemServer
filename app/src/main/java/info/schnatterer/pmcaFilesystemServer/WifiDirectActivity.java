@@ -18,7 +18,18 @@ import java.util.List;
 public class WifiDirectActivity extends BaseActivity {
     public static final String MY_IP_ADDRESS = "192.168.122.1";
 
+public static final String ASCII_ART =
+        " d8b                                       d8,\n" +
+        " 88P               d8P     d8P      `8P \n" +
+        "d88         d888888Pd888888P     \n" +
+        "888   d8888b  ?88'    ?88'    88b\n" +
+        "?88  d8b_,dP  88P     88P     88P\n" +
+        " 88b 88b         88b     88b    d88 \n" +
+        "  88b`?888P'  `?8b    `?8b  d88' \n" + 
+        "            [ L E T T I']        \n\n";
+
     private TextView textView;
+    private android.widget.ScrollView scrollView;
     private WifiManager wifiManager;
     private DirectManager wifiDirectManager;
     private BroadcastReceiver wifiStateReceiver;
@@ -37,6 +48,8 @@ public class WifiDirectActivity extends BaseActivity {
         setContentView(R.layout.log);
 
         textView = (TextView) findViewById(R.id.logView);
+        scrollView = (android.widget.ScrollView) findViewById(R.id.logScrollView);
+        textView.setText(ASCII_ART);
 
         wifiManager = (WifiManager) getApplicationContext().getSystemService(WIFI_SERVICE);
         wifiDirectManager = (DirectManager) getApplicationContext().getSystemService(DirectManager.WIFI_DIRECT_SERVICE);
@@ -99,6 +112,7 @@ public class WifiDirectActivity extends BaseActivity {
         wifiDirectManager.setDirectEnabled(true);
         try {
             httpServer.start();
+            log("Server started successfully");
         } catch (IOException e) {
             Logger.error("Failed to start HTTP Server: " + e.getMessage());
         }
@@ -157,6 +171,8 @@ public class WifiDirectActivity extends BaseActivity {
         log("Group created");
         log("SSID: " + configuration.getSsid());
         log("Key: " + configuration.getPreSharedKey());
+        log("IP: " + MY_IP_ADDRESS);
+        log("Port: " + HttpServer.PORT);
         log("Server URL: http://" + MY_IP_ADDRESS + ":" + HttpServer.PORT + "/");
     }
 
@@ -172,7 +188,24 @@ public class WifiDirectActivity extends BaseActivity {
         log("Station disconnected: " + address);
     }
 
-    protected void log(String msg) {
-        textView.append(msg + "\n");
+    protected void log(final String msg) {
+        Logger.info(msg);
+        textView.post(new Runnable() {
+            @Override
+            public void run() {
+                textView.append(msg + "\n");
+                scrollToBottom();
+            }
+        });
     }
+
+    private void scrollToBottom() {
+        scrollView.post(new Runnable() {
+            @Override
+            public void run() {
+                scrollView.fullScroll(android.view.View.FOCUS_DOWN);
+            }
+        });
+    }
+
 }
