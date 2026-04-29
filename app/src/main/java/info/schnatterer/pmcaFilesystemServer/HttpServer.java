@@ -6,14 +6,11 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.io.RandomAccessFile;
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.List;
 import java.util.Locale;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -27,28 +24,88 @@ public class HttpServer extends SimpleWebServer {
     static final boolean QUIET = false;
 
     private static final String CSS = 
-        "body { font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif; margin: 0; padding: 0; background: #f8fafc; color: #1e293b; }\n" +
-        "header { background: #0f172a; color: white; padding: 1rem; text-align: center; position: sticky; top: 0; z-index: 100; }\n" +
-        "header h1 { margin: 0; font-size: 1.1rem; }\n" +
-        ".container { padding: 0.75rem; max-width: 800px; margin: 0 auto; }\n" +
-        ".breadcrumbs { margin-bottom: 1rem; font-size: 0.85rem; padding: 0.5rem; background: white; border-radius: 8px; border: 1px solid #e2e8f0; white-space: nowrap; overflow-x: auto; display: flex; align-items: center; justify-content: space-between; }\n" +
-        ".breadcrumbs a { color: #3b82f6; text-decoration: none; }\n" +
-        ".card { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 1rem; border: 1px solid #e2e8f0; }\n" +
-        ".card-header { padding: 0.75rem 1rem; font-weight: 700; border-bottom: 1px solid #f1f5f9; background: #f8fafc; font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center; }\n" +
-        ".file-list { list-style: none; padding: 0; margin: 0; }\n" +
-        ".file-item { display: flex; align-items: center; padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; text-decoration: none; color: inherit; }\n" +
-        ".file-item:last-child { border-bottom: none; }\n" +
-        ".file-item:active { background: #f1f5f9; }\n" +
-        ".file-info { flex: 1; min-width: 0; }\n" +
-        ".file-name { font-weight: 500; font-size: 0.95rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n" +
-        ".file-meta { font-size: 0.75rem; color: #64748b; }\n" +
-        ".file-icon { font-size: 1.5rem; margin-right: 1rem; flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 40px; }\n" +
-        ".thumb-img { width: 40px; height: 40px; border-radius: 4px; object-fit: cover; margin-right: 1rem; background: #eee; flex-shrink: 0; }\n" +
-        ".btn-action { padding: 0.5rem 0.75rem; background: #3b82f6; color: white; border-radius: 6px; font-size: 0.75rem; font-weight: 600; text-decoration: none; margin-left: 0.5rem; flex-shrink: 0; }\n" +
-        ".btn-zip { background: #10b981; margin-left: auto; }\n" +
-        ".preview-img { width: 100%; height: auto; display: block; border-radius: 8px; margin-bottom: 0.5rem; background: #eee; }\n" +
-        ".preview-container { padding: 1rem; text-align: center; }\n" +
-        "footer { text-align: center; padding: 2rem; color: #94a3b8; font-size: 0.75rem; }";
+        ":root { " +
+        "  --bg: #f8fafc; --surface: #ffffff; --primary: #4f46e5; --primary-hover: #4338ca; " +
+        "  --text-main: #0f172a; --text-muted: #64748b; --border: #e2e8f0; --accent: #10b981; " +
+        "  --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); " +
+        "  --radius: 12px; " +
+        "} " +
+        "* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; } " +
+        "body { font-family: -apple-system, system-ui, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; " +
+        "       margin: 0; background: var(--bg); color: var(--text-main); line-height: 1.5; overflow-x: hidden; } " +
+        
+        "header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0.75rem 1rem; " +
+        "         position: sticky; top: 0; z-index: 100; display: flex; align-items: center; justify-content: space-between; " +
+        "         box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); } " +
+        "header h1 { font-size: 1.1rem; font-weight: 700; margin: 0; color: var(--primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } " +
+        
+        ".btn-menu { background: none; border: none; font-size: 1.5rem; cursor: pointer; padding: 0.5rem; display: flex; align-items: center; } " +
+        
+        ".drawer { position: fixed; top: 0; left: -280px; width: 280px; height: 100%; background: var(--surface); " +
+        "          z-index: 200; box-shadow: 4px 0 10px rgba(0,0,0,0.1); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); " +
+        "          padding: 1.5rem; display: flex; flex-direction: column; } " +
+        ".drawer.open { transform: translateX(280px); } " +
+        ".drawer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 150; display: none; backdrop-filter: blur(2px); } " +
+        ".drawer-overlay.active { display: block; } " +
+        
+        ".nav-group { margin-bottom: 2rem; } " +
+        ".nav-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.75rem; letter-spacing: 0.05em; } " +
+        ".nav-link { display: flex; align-items: center; padding: 0.75rem 1rem; text-decoration: none; color: var(--text-main); " +
+        "            border-radius: var(--radius); margin-bottom: 0.25rem; font-weight: 500; transition: background 0.2s; } " +
+        ".nav-link:active, .nav-link.active { background: var(--bg); color: var(--primary); } " +
+        ".nav-link i { margin-right: 0.75rem; font-style: normal; } " +
+        
+        ".container { padding: 1rem; max-width: 1400px; margin: 0 auto; } " +
+        
+        ".breadcrumbs { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; color: var(--text-muted); margin-bottom: 1.5rem; " +
+        "                overflow-x: auto; white-space: nowrap; padding-bottom: 0.5rem; -webkit-overflow-scrolling: touch; } " +
+        ".breadcrumbs a { color: var(--text-muted); text-decoration: none; } " +
+        ".breadcrumbs span { color: var(--text-main); font-weight: 600; } " +
+        
+        ".grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; } " +
+        "@media (min-width: 480px) { .grid { grid-template-columns: repeat(3, 1fr); } } " +
+        "@media (min-width: 768px) { .grid { grid-template-columns: repeat(4, 1fr); } } " +
+        "@media (min-width: 1024px) { .grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); } } " +
+        
+        ".file-card { background: var(--surface); border-radius: var(--radius); overflow: hidden; " +
+        "             border: 1px solid var(--border); box-shadow: var(--shadow); position: relative; " +
+        "             display: flex; flex-direction: column; transition: transform 0.15s, box-shadow 0.15s; } " +
+        ".file-card:active { transform: scale(0.98); } " +
+        
+        ".thumb-box { width: 100%; aspect-ratio: 4/3; background: #f1f5f9; position: relative; overflow: hidden; " +
+        "             display: flex; align-items: center; justify-content: center; text-decoration: none; } " +
+        ".thumb-box img { width: 100%; height: 100%; object-fit: cover; } " +
+        ".file-icon { font-size: 2.5rem; opacity: 0.4; } " +
+        
+        ".card-info { padding: 0.75rem; flex-grow: 1; display: flex; flex-direction: column; } " +
+        ".file-name { font-size: 0.875rem; font-weight: 600; margin: 0 0 0.25rem; overflow: hidden; " +
+        "             text-overflow: ellipsis; white-space: nowrap; color: var(--text-main); } " +
+        ".file-meta { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.75rem; } " +
+        
+        ".actions { display: flex; gap: 0.5rem; margin-top: auto; } " +
+        ".btn { flex: 1; padding: 0.6rem; border-radius: 8px; border: 1px solid var(--border); " +
+        "       background: var(--surface); color: var(--text-main); font-size: 0.75rem; font-weight: 600; " +
+        "       text-align: center; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 0.4rem; } " +
+        ".btn-primary { background: var(--primary); color: white; border-color: var(--primary); } " +
+        
+        ".fab-zip { position: fixed; bottom: 1.5rem; right: 1.5rem; width: 56px; height: 56px; " +
+        "           background: var(--accent); color: white; border-radius: 50%; display: flex; " +
+        "           align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.25); " +
+        "           text-decoration: none; font-size: 1.5rem; z-index: 90; } " +
+        
+        ".preview-overlay { padding: 1rem; text-align: center; background: var(--bg); min-height: 100vh; color: var(--text-main); } " +
+        ".preview-img { max-width: 100%; height: auto; border-radius: 8px; margin-bottom: 2rem; box-shadow: var(--shadow); } " +
+        
+        "footer { padding: 3rem 1rem; text-align: center; color: var(--text-muted); font-size: 0.75rem; } ";
+
+    private static final String JS = 
+        "function toggleMenu() { " +
+        "  document.getElementById('drawer').classList.toggle('open'); " +
+        "  document.getElementById('overlay').classList.toggle('active'); " +
+        "} " +
+        "document.addEventListener('DOMContentLoaded', function() { " +
+        "  document.getElementById('overlay').onclick = toggleMenu; " +
+        "}); ";
 
     public HttpServer() {
         super(HOST, PORT, new File(WWW_ROOT).getAbsoluteFile(), QUIET);
@@ -57,6 +114,7 @@ public class HttpServer extends SimpleWebServer {
     @Override
     public Response serve(IHTTPSession session) {
         String uri = session.getUri();
+        Logger.info("HTTP Request: " + uri);
         File f = new File(uri);
 
         if (session.getParameters().containsKey("zip") && f.isDirectory()) {
@@ -64,6 +122,10 @@ public class HttpServer extends SimpleWebServer {
         }
 
         if (session.getParameters().containsKey("thumb")) {
+            String name = f.getName().toLowerCase();
+            if (name.endsWith(".jpg") || name.endsWith(".jpeg")) {
+                return super.serve(session);
+            }
             return serveThumbnail(f);
         }
 
@@ -78,96 +140,37 @@ public class HttpServer extends SimpleWebServer {
         }
     }
 
-    private Response serveZip(final File directory) {
-        try {
-            final PipedOutputStream pos = new PipedOutputStream();
-            PipedInputStream pis = new PipedInputStream(pos);
-
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    ZipOutputStream zos = null;
-                    try {
-                        zos = new ZipOutputStream(pos);
-                        zipFolder(directory, directory, zos);
-                    } catch (IOException e) {
-                        Logger.error("ZIP error: " + e.getMessage());
-                    } finally {
-                        try {
-                            if (zos != null) zos.close();
-                            pos.close();
-                        } catch (IOException e) {
-                            // Ignore
-                        }
-                    }
-                }
-            }).start();
-
-            Response res = newChunkedResponse(Response.Status.OK, "application/zip", pis);
-            res.addHeader("Content-Disposition", "attachment; filename=\"" + directory.getName() + ".zip\"");
-            return res;
-        } catch (IOException e) {
-            return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, MIME_PLAINTEXT, "Zip error: " + e.getMessage());
-        }
-    }
-
-    private void zipFolder(File root, File folder, ZipOutputStream zos) throws IOException {
-        File[] files = folder.listFiles();
-        if (files == null) return;
-        byte[] buffer = new byte[64 * 1024]; // 64KB buffer
-        for (File f : files) {
-            if (f.isDirectory()) {
-                zipFolder(root, f, zos);
-            } else {
-                String entryName = f.getAbsolutePath().substring(root.getAbsolutePath().length() + 1);
-                ZipEntry ze = new ZipEntry(entryName);
-                zos.putNextEntry(ze);
-                FileInputStream fis = new FileInputStream(f);
-                int len;
-                while ((len = fis.read(buffer)) > 0) {
-                    zos.write(buffer, 0, len);
-                }
-                fis.close();
-                zos.closeEntry();
-            }
-        }
-    }
-
     private Response serveThumbnail(File f) {
         try {
             byte[] thumb = extractThumbnail(f);
-            if (thumb != null) {
-                return newFixedLengthResponse(Response.Status.OK, "image/jpeg", new ByteArrayInputStream(thumb), thumb.length);
+            if (thumb != null && thumb.length > 0) {
+                Response res = newFixedLengthResponse(Response.Status.OK, "image/jpeg", new ByteArrayInputStream(thumb), (long) thumb.length);
+                res.addHeader("Cache-Control", "public, max-age=3600");
+                return res;
             }
-        } catch (IOException e) {
-            // Ignorar erro e retornar 404
+        } catch (Exception e) {
+            Logger.error("Error serving thumb: " + e.getMessage());
         }
-        return newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT, "Thumbnail not found");
+        return newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT, "No thumb");
     }
 
     private byte[] extractThumbnail(File f) throws IOException {
         if (!f.exists() || !f.isFile()) return null;
         RandomAccessFile raf = new RandomAccessFile(f, "r");
         try {
-            byte[] buffer = new byte[256 * 1024];
+            byte[] buffer = new byte[1024 * 512];
             int bytesRead = raf.read(buffer);
             if (bytesRead < 4) return null;
-
             for (int i = 0; i < bytesRead - 3; i++) {
-                if ((buffer[i] & 0xFF) == 0xFF && (buffer[i+1] & 0xFF) == 0xD8 && (buffer[i+2] & 0xFF) == 0xFF) {
+                if ((buffer[i] & 0xFF) == 0xFF && (buffer[i+1] & 0xFF) == 0xD8) {
                     int start = i;
                     for (int j = i + 2; j < bytesRead - 1; j++) {
                         if ((buffer[j] & 0xFF) == 0xFF && (buffer[j+1] & 0xFF) == 0xD9) {
-                            int end = j + 2;
-                            byte[] thumb = new byte[end - start];
+                            byte[] thumb = new byte[j + 2 - start];
                             System.arraycopy(buffer, start, thumb, 0, thumb.length);
                             return thumb;
                         }
                     }
-                    int end = bytesRead;
-                    byte[] thumb = new byte[end - start];
-                    System.arraycopy(buffer, start, thumb, 0, thumb.length);
-                    return thumb;
                 }
             }
         } finally {
@@ -183,172 +186,169 @@ public class HttpServer extends SimpleWebServer {
 
     private Response servePreview(String uri, File f) {
         StringBuilder html = new StringBuilder();
-        String title = "Preview: " + f.getName();
-        html.append("<!DOCTYPE html><html><head>");
-        html.append("<meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">");
+        html.append("<!DOCTYPE html><html><head><meta charset=\"UTF-8\">");
+        html.append("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, maximum-scale=5.0\">");
         html.append("<style>").append(CSS).append("</style></head><body>");
-        html.append("<header><h1>").append(title).append("</h1></header>");
-        html.append("<div class=\"container\">");
-        html.append("<div class=\"breadcrumbs\"><a href=\"").append(f.getParent()).append("\">🔙 Voltar para pasta</a></div>");
-        html.append("<div class=\"card preview-container\">");
-        
+        html.append("<div class=\"preview-overlay\">");
+        html.append("<div style=\"text-align:left; margin-bottom:1rem;\"><a href=\"").append(f.getParent()).append("\" style=\"color:var(--primary); text-decoration:none; font-weight:700;\">✕ Voltar</a></div>");
         String imgSrc = f.getName().toLowerCase().endsWith(".arw") ? uri + "?thumb=1" : uri;
         html.append("<img src=\"").append(imgSrc).append("\" class=\"preview-img\">");
-        
-        html.append("<div class=\"file-meta\">").append(f.getName()).append(" (").append(formatSize(f.length())).append(")</div><br>");
-        html.append("<a href=\"").append(uri).append("\" download class=\"btn-action\" style=\"font-size: 1rem; padding: 0.75rem 1.5rem;\">Download original .ARW</a>");
-        html.append("</div></div></body></html>");
+        html.append("<div class=\"file-name\">").append(f.getName()).append("</div>");
+        html.append("<div class=\"file-meta\">").append(formatSize(f.length())).append("</div>");
+        html.append("<div style=\"margin-top:2rem;\"><a href=\"").append(uri).append("\" download class=\"btn btn-primary\" style=\"padding:1rem\">Download Original</a></div>");
+        html.append("</div></body></html>");
         return newFixedLengthResponse(Response.Status.OK, MIME_HTML, html.toString());
     }
 
     private Response serveDirectory(String uri, File directory) {
         StringBuilder html = new StringBuilder();
-        String title = getDeviceInfo().getModel();
-        
+        DeviceInfo dev = DeviceInfo.getInstance();
         html.append("<!DOCTYPE html><html lang=\"pt-BR\"><head>");
-        html.append("<meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no\">");
-        html.append("<title>").append(title).append("</title>");
+        html.append("<meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, user-scalable=no\">");
+        html.append("<title>Explorer - ").append(dev.getModel()).append("</title>");
         html.append("<style>").append(CSS).append("</style>");
+        html.append("<script>").append(JS).append("</script>");
         html.append("</head><body>");
 
-        html.append("<header><h1>").append(getDeviceInfo().getBrand()).append(" ").append(title).append("</h1></header>");
-        html.append("<div class=\"container\">");
+        // Header
+        html.append("<header>");
+        html.append("<button class=\"btn-menu\" onclick=\"toggleMenu()\">☰</button>");
+        html.append("<h1>").append(dev.getModel()).append("</h1>");
+        html.append("<div style=\"width:40px\"></div>"); // Spacer
+        html.append("</header>");
 
+        // Drawer
+        html.append("<div class=\"drawer-overlay\" id=\"overlay\"></div>");
+        html.append("<div class=\"drawer\" id=\"drawer\">");
+        html.append("<div class=\"nav-group\"><div class=\"nav-title\">Navegação</div>");
+        html.append("<a href=\"/\" class=\"nav-link\"><i>🏠</i> Início</a>");
+        html.append("<a href=\"/sdcard/DCIM\" class=\"nav-link\"><i>📸</i> Galeria DCIM</a>");
+        html.append("<a href=\"/sdcard/PRIVATE/M4ROOT/CLIP\" class=\"nav-link\"><i>🎬</i> Vídeos MP4</a>");
+        html.append("</div>");
+        html.append("<div style=\"margin-top:auto; font-size:0.7rem; color:var(--text-muted)\">PMCA Server v0.4.0</div>");
+        html.append("</div>");
+
+        html.append("<div class=\"container\">");
+        
         // Breadcrumbs
-        html.append("<div class=\"breadcrumbs\"><div>");
-        html.append("<a href=\"/\">Início</a>");
+        html.append("<div class=\"breadcrumbs\">");
         String[] parts = uri.split("/");
         StringBuilder currentPath = new StringBuilder();
+        html.append("<a href=\"/\">root</a>");
         for (String part : parts) {
             if (part.isEmpty()) continue;
             currentPath.append("/").append(part);
-            html.append(" / <a href=\"").append(currentPath.toString()).append("\">").append(part).append("</a>");
-        }
-        html.append("</div>");
-        
-        if (!uri.equals("/") && !uri.isEmpty()) {
-            html.append("<a href=\"").append(uri).append("?zip=1\" class=\"btn-action btn-zip\">Download ZIP</a>");
+            html.append("<span> / </span><a href=\"").append(currentPath.toString()).append("\">").append(part).append("</a>");
         }
         html.append("</div>");
 
-        if (uri.equals("/") || uri.isEmpty()) {
-            renderSummary(html);
-        }
-
+        // Grid
+        html.append("<div class=\"grid\">");
         renderFileList(uri, directory, html);
-
         html.append("</div>");
-        html.append("<footer>pmcaFilesystemServer &bull; ").append(title).append("</footer>");
+
+        html.append("</div>"); // container
+
+        if (!uri.equals("/") && !uri.isEmpty()) {
+            html.append("<a href=\"").append(uri).append("?zip=1\" class=\"fab-zip\" title=\"Download ZIP\">📦</a>");
+        }
+
+        html.append("<footer>").append(dev.getBrand()).append(" &bull; ").append(dev.getModel()).append("<br>pmcaFilesystemServer Modern UI</footer>");
         html.append("</body></html>");
 
         return newFixedLengthResponse(Response.Status.OK, MIME_HTML, html.toString());
     }
 
-    private void renderSummary(StringBuilder html) {
-        html.append("<div class=\"card\">");
-        html.append("<div class=\"card-header\">Mídias Encontradas</div>");
-        html.append("<div class=\"file-list\">");
-        
-        String videoPath = "/sdcard/PRIVATE/M4ROOT/CLIP";
-        String photosPath = "/sdcard/DCIM";
-
-        int photoCount = FilesystemScanner.getJpegsOnExternalStorage().size() + 
-                         FilesystemScanner.getRawsOnExternalStorage().size();
-
-        renderSummaryItem("Vídeos", FilesystemScanner.getVideosOnExternalStorage().size(), "🎬", videoPath, html);
-        renderSummaryItem("Photos", photoCount, "📸", photosPath, html);
-        
-        html.append("<a href=\"").append(Logger.getFile().getAbsolutePath()).append("\" class=\"file-item\">");
-        html.append("<span class=\"file-icon\">📝</span><div class=\"file-info\"><span class=\"file-name\">System Log</span></div></a>");
-        
-        html.append("</div></div>");
-    }
-
-    private void renderSummaryItem(String label, int count, String icon, String path, StringBuilder html) {
-        html.append("<a href=\"").append(path).append("\" class=\"file-item\">");
-        html.append("<span class=\"file-icon\">").append(icon).append("</span>");
-        html.append("<div class=\"file-info\"><span class=\"file-name\">").append(label).append("</span>");
-        html.append("<span class=\"file-meta\">").append(count).append(" arquivos encontrados</span></div>");
-        html.append("<span style=\"color:#3b82f6; font-weight:bold;\">Abrir &rarr;</span></a>");
-    }
-
     private void renderFileList(String uri, File directory, StringBuilder html) {
-        html.append("<div class=\"card\">");
-        html.append("<div class=\"card-header\"><span>Arquivos em ").append(uri).append("</span></div>");
-        html.append("<div class=\"file-list\">");
-
-        if (!uri.equals("/") && !uri.isEmpty()) {
-            File parent = directory.getParentFile();
-            String parentLink = parent != null ? parent.getAbsolutePath() : "/";
-            html.append("<a href=\"").append(parentLink).append("\" class=\"file-item\">");
-            html.append("<span class=\"file-icon\">⬅️</span><div class=\"file-info\"><span class=\"file-name\">.. (Voltar)</span></div></a>");
-        }
-
         File[] files = directory.listFiles();
-        if (files != null) {
-            Arrays.sort(files, new Comparator<File>() {
-                @Override
-                public int compare(File a, File b) {
-                    if (a.isDirectory() && !b.isDirectory()) return -1;
-                    if (!a.isDirectory() && b.isDirectory()) return 1;
-                    return a.getName().compareToIgnoreCase(b.getName());
-                }
-            });
+        if (files == null) return;
 
-            for (File file : files) {
-                if (file.getName().startsWith(".")) continue;
+        Arrays.sort(files, new Comparator<File>() {
+            @Override
+            public int compare(File a, File b) {
+                if (a.isDirectory() && !b.isDirectory()) return -1;
+                if (!a.isDirectory() && b.isDirectory()) return 1;
+                return b.getName().compareToIgnoreCase(a.getName());
+            }
+        });
 
-                String icon = file.isDirectory() ? "📁" : getIconForFile(file.getName());
-                String link = file.getAbsolutePath();
-                boolean isImg = isImage(file.getName());
-                
-                html.append("<div class=\"file-item\">");
-                
-                if (isImg && !file.isDirectory()) {
-                    html.append("<img class=\"thumb-img\" src=\"").append(link).append("?thumb=1\">");
-                } else {
-                    html.append("<span class=\"file-icon\">").append(icon).append("</span>");
-                }
-
-                html.append("<div class=\"file-info\">");
-                html.append("<a class=\"file-name\" href=\"").append(isImg ? link + "?preview=1" : link).append("\">").append(file.getName()).append("</a>");
-                html.append("<span class=\"file-meta\">").append(file.isDirectory() ? "Pasta" : formatSize(file.length())).append("</span>");
-                html.append("</div>");
-                
-                if (!file.isDirectory()) {
-                    html.append("<a href=\"").append(link).append("\" download class=\"btn-action\">Baixar</a>");
-                }
+        for (File file : files) {
+            if (file.getName().startsWith(".")) continue;
+            String path = file.getAbsolutePath();
+            boolean isImg = isImage(file.getName());
+            
+            html.append("<div class=\"file-card\">");
+            html.append("<a href=\"").append(file.isDirectory() ? path : (isImg ? path + "?preview=1" : path)).append("\" class=\"thumb-box\">");
+            if (isImg && !file.isDirectory()) {
+                html.append("<img src=\"").append(path).append("?thumb=1\" loading=\"lazy\">");
+            } else {
+                html.append("<span class=\"file-icon\">").append(file.isDirectory() ? "📁" : getIcon(file.getName())).append("</span>");
+            }
+            html.append("</a>");
+            html.append("<div class=\"card-info\">");
+            html.append("<div class=\"file-name\">").append(file.getName()).append("</div>");
+            html.append("<div class=\"file-meta\">").append(file.isDirectory() ? "Pasta" : formatSize(file.length())).append("</div>");
+            if (!file.isDirectory()) {
+                html.append("<div class=\"actions\">");
+                html.append("<a href=\"").append(path).append("\" download class=\"btn btn-primary\">Baixar</a>");
+                if (isImg) html.append("<a href=\"").append(path).append("?preview=1\" class=\"btn\">Ver</a>");
                 html.append("</div>");
             }
+            html.append("</div></div>");
         }
-        
-        html.append("</div></div>");
     }
 
-    private String getIconForType(String type) {
-        if (type.contains("Video")) return "🎬";
-        if (type.contains("JPEG")) return "🖼️";
-        if (type.contains("RAW")) return "📸";
-        return "📁";
+    private Response serveZip(final File directory) {
+        try {
+            final PipedOutputStream pos = new PipedOutputStream();
+            PipedInputStream pis = new PipedInputStream(pos);
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    ZipOutputStream zos = null;
+                    try {
+                        zos = new ZipOutputStream(pos);
+                        zipFolder(directory, directory, zos);
+                    } catch (IOException e) {
+                    } finally {
+                        try { if (zos != null) zos.close(); pos.close(); } catch (IOException e) {}
+                    }
+                }
+            }).start();
+            Response res = newChunkedResponse(Response.Status.OK, "application/zip", pis);
+            res.addHeader("Content-Disposition", "attachment; filename=\"" + directory.getName() + ".zip\"");
+            return res;
+        } catch (IOException e) {
+            return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, MIME_PLAINTEXT, "Zip error");
+        }
     }
 
-    private String getIconForFile(String filename) {
-        filename = filename.toLowerCase();
-        if (filename.endsWith(".jpg") || filename.endsWith(".jpeg")) return "🖼️";
-        if (filename.endsWith(".mp4") || filename.endsWith(".mts")) return "🎬";
-        if (filename.endsWith(".arw")) return "📸";
-        if (filename.endsWith(".txt") || filename.endsWith(".log")) return "📝";
-        return "📄";
+    private void zipFolder(File root, File folder, ZipOutputStream zos) throws IOException {
+        File[] files = folder.listFiles();
+        if (files == null) return;
+        byte[] buf = new byte[64 * 1024];
+        for (File f : files) {
+            if (f.isDirectory()) zipFolder(root, f, zos);
+            else {
+                zos.putNextEntry(new ZipEntry(f.getAbsolutePath().substring(root.getAbsolutePath().length() + 1)));
+                FileInputStream fis = new FileInputStream(f);
+                int len;
+                while ((len = fis.read(buf)) > 0) zos.write(buf, 0, len);
+                fis.close();
+                zos.closeEntry();
+            }
+        }
+    }
+
+    private String getIcon(String name) {
+        name = name.toLowerCase();
+        if (name.endsWith(".mp4") || name.endsWith(".mts")) return "VIDEO";
+        return "FILE";
     }
 
     private String formatSize(long bytes) {
         if (bytes < 1024) return bytes + " B";
         int exp = (int) (Math.log(bytes) / Math.log(1024));
-        char pre = "KMGTPE".charAt(exp - 1);
-        return String.format(Locale.US, "%.1f %cB", bytes / Math.pow(1024, exp), pre);
-    }
-
-    private DeviceInfo getDeviceInfo() {
-        return DeviceInfo.getInstance();
+        return String.format(Locale.US, "%.1f %cB", bytes / Math.pow(1024, exp), "KMGTPE".charAt(exp - 1));
     }
 }
