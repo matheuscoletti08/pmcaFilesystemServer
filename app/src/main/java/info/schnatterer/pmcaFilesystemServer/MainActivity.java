@@ -41,6 +41,8 @@ public class MainActivity extends BaseActivity implements AdapterView.OnItemClic
         super.onCreate(savedInstanceState);
         setContentView(R.layout.list);
 
+        Logger.init(this);
+
         Thread.setDefaultUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
             @Override
             public void uncaughtException(Thread thread, Throwable throwable) {
