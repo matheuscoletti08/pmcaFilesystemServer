@@ -6,13 +6,6 @@ A modern, responsive web server for Sony Cameras (PlayMemories Camera Apps) that
 
 This app is designed to work around the constraints of certain Sony cameras (like the A6000) where videos cannot be downloaded via the official WiFi apps.
 
-# Web UI Preview
-
-| Desktop View | Mobile View |
-| :---: | :---: |
-| ![Desktop Screenshot](docs/screenshots/desktop.png) | ![Mobile Screenshot](docs/screenshots/mobile.png) |
-| *Modernized file explorer* | *Responsive mobile interface* |
-
 # Key Features
 
 *   **Modern Web UI:** Responsive, card-based grid layout with a clean, dark-mode friendly design.
