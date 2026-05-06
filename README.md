@@ -2,59 +2,60 @@ pmcaFilesystemServer
 ====
 [![Build Status](https://travis-ci.org/schnatterer/pmcaFilesystemServer.svg?branch=develop)](https://travis-ci.org/schnatterer/pmcaFilesystemServer)
 
-Simple Android app for Sony Cameras ( PlayMemories Camera App Store) that provides the File System 
-of the camera via HTTP.
+A modern, responsive web server for Sony Cameras (PlayMemories Camera Apps) that provides access to the camera's filesystem via HTTP. 
 
-This app uses the [OpenMemories: Framework](https://github.com/ma1co/OpenMemories-Framework) and is 
-greatly inspired by the following existing open source PMCA Apps
+This app is designed to work around the constraints of certain Sony cameras (like the A6000) where videos cannot be downloaded via the official WiFi apps.
 
-* [ma1co/PMCADemo](https://github.com/ma1co/PMCADemo)
-* [LubikR/SynologyUploader](https://github.com/LubikR/SynologyUploader)
-* [Bostwickenator/STGUploader](https://github.com/Bostwickenator/STGUploader)
+# Web UI Preview
 
-# Pre-release of new UI
+| Desktop View | Mobile View |
+| :---: | :---: |
+| ![Desktop Screenshot](docs/screenshots/desktop.png) | ![Mobile Screenshot](docs/screenshots/mobile.png) |
+| *Modernized file explorer* | *Responsive mobile interface* |
 
-The PR for the new user interface hase been dangling for years. Now there is a pre-release that can be installed via Sony-PMCA-RE or through adb. See [#4](https://github.com/schnatterer/pmcaFilesystemServer/pull/4).
+# Key Features
 
-<img src="https://user-images.githubusercontent.com/1522953/88163092-7608fe80-cc12-11ea-8db7-9d0efad416be.png" height="240px">&nbsp;&nbsp;&nbsp;&nbsp;<img src="https://user-images.githubusercontent.com/1522953/88175996-ef125100-cc26-11ea-83ce-7c54c6b1f269.png" height="240px"> 
+*   **Modern Web UI:** Responsive, card-based grid layout with a clean, dark-mode friendly design.
+*   **Media Gallery:** Optimized view for DCIM photos and videos.
+*   **Real-time Thumbnails:** On-the-fly thumbnail extraction for JPEGs and ARW (RAW) files.
+*   **Image Preview:** Built-in viewer for photos before downloading.
+*   **Smart Navigation:** Breadcrumbs and a side drawer for quick access to important folders (DCIM, Videos).
+*   **Bulk Download:** Download entire directories as a single ZIP file.
+*   **Legacy Support:** Minimalist enough to run on the Android 4.1.2 browser found in older Sony cameras.
 
 # Installation 
 
-* Use [Sony-PMCA-RE](https://github.com/ma1co/Sony-PMCA-RE), 
-* via [sony-pmca.appspot.com](https://sony-pmca.appspot.com/apps) or 
-* through adb (using [tweak app](https://github.com/ma1co/OpenMemories-Tweak)).
+The "Modern UI" is currently in active development. You can install it via:
+*   [Sony-PMCA-RE](https://github.com/ma1co/Sony-PMCA-RE) (Use the "Tweak" app method).
+*   Directly through `adb install`.
+*   Download the latest **unsigned APK** from the [Releases](https://github.com/matheuscoletti08/pmcaFilesystemServer/releases) page.
+
+> **Note:** For Sony cameras, signed APKs are often denied by the installation process. Prefer using the unsigned version provided in releases.
 
 # Usage
 
-On Startup a WiFi Connection will be established. Once this succeeds a webserver is started 
-and its URL is displayed. There you can download all data from the camera, like images and videos.
+1.  Start the app on your camera.
+2.  Wait for the WiFi connection to be established.
+3.  Once connected, the app will display a URL (e.g., `http://192.168.x.x:8080`).
+4.  Open this URL in your phone, tablet, or PC's browser to browse and download your files.
 
-This works around the constraint of certain Sony cameras where videos can not be downloaded via WiFi.
-
-<font color="red">⚠</font>  The Web Server exposes the whole file system without authentication to everyone on the same network 
-as the camera. Make sure to run this in a private network, using WiFi direct or by using your 
-Mobile's Hotspot.
+<font color="red">⚠</font> **SECURITY WARNING:** The Web Server exposes the **entire filesystem** without authentication. Anyone on the same network can access your files. Only run this in a private network, via WiFi Direct, or using your Mobile Hotspot.
 
 # Development
 
+This project uses the [OpenMemories: Framework](https://github.com/ma1co/OpenMemories-Framework) and must remain compatible with **Java 7 (source 1.7)** to run on the camera's hardware.
+
 ```bash
+# Connect to camera via ADB over WiFi
 adb tcpip 5555
-adb connect 192.168.178.53:5555
+adb connect <CAMERA_IP>:5555
 ```
 
-See https://stackoverflow.com/a/3623727
+The app writes logs to the SD card at: `/storage/sdcard0/pmcaFilesystemServer/LOG.TXT`.
 
-For creating a release, set git tag and then upload an *unsigned* APK to GitHub's release page.
-Signed APKs seem to be denied by Sony-PMCA-RE.
+## Credits
 
-The app writes a log file to the SD card: `/storage/sdcard0/pmcaFilesystemServer/LOG.TXT`.
-
-## Icon
-
-Was generated with 
-[AndroidAssetStudio](https://romannurik.github.io/AndroidAssetStudio/icons-launcher.html#foreground.type=text&foreground.text.text=HTTP%20FS&foreground.text.font=Allerta%20Stencil&foreground.space.trim=1&foreground.space.pad=0.1&foreColor=rgba(96%2C%20125%2C%20139%2C%200)&backColor=rgb(139%2C%20195%2C%2074)&crop=0&backgroundShape=square&effects=none&name=ic_launcher) 
-
-## Feature Ideas
-
-* QR Code: https://stackoverflow.com/a/8800974/
-* Basic Auth: https://github.com/NanoHttpd/nanohttpd/issues/496
+Inspired by and building upon:
+*   [ma1co/PMCADemo](https://github.com/ma1co/PMCADemo)
+*   [LubikR/SynologyUploader](https://github.com/LubikR/SynologyUploader)
+*   [Bostwickenator/STGUploader](https://github.com/Bostwickenator/STGUploader)
